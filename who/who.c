@@ -32,14 +32,14 @@ int main(void)
 				bd_time = localtime(&tm_temp); //convert sec to broken-down time
 				// convert broken-down time to string according to the format	
 				strftime(outstr, 50, TIME_FORMAT, bd_time); 
-				printf("user %s time %s device %s  %s\n", utmp_info->ut_user, outstr, utmp_info->ut_line,
+				printf("%s	%s	 %s  %s\n", utmp_info->ut_user, utmp_info->ut_line, outstr,
 								utmp_info->ut_host);
 		}
 	}
 
 	free(utmp_info);
-	printf("free utmp_info\n");
+//	printf("free utmp_info\n");
 	close(fd);
-	printf("closed\n");
+//	printf("closed\n");
 	return 0;
 }
