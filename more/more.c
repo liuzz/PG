@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include <term.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -25,13 +26,13 @@
 #include <stdio.h>
 #include <termio.h>
 
-//#define COLUMN 		160
-//#define ROW 		27
+static int COLUMN;
+static int ROW;
 
-int see_more(int ROW)
+int see_more(int precent)
 {
 	int c;
-	fprintf(stdout, "\033[7m --more-- \033[m");
+	fprintf(stdout, "\033[7m--more--(%d%)\033[m", precent);
 	while ((c = getchar()) != EOF) {
 		if (c == 'q')
 			return 0;
@@ -45,18 +46,19 @@ int see_more(int ROW)
 int do_more(char *pathname)
 {
 	FILE *stream;
-	int ROW, COLUMN;
 	char err[100];
 	int nrow, ncolumn;
 	char content[COLUMN];
 	struct termios oldstat, newstat;
 	int line = 0; //count the rows, when equals to ROW, pause outputting
+	long long byte_count = 0;
+	long long file_size;
 	int replay;
 	char *cursor;
 	char *esc_sequence;
 	struct stat buffer;
 	stat(pathname, &buffer);
-
+	file_size = (long long)buffer.st_size;
 
 	stream = fopen(pathname, "r");
 	if (!stream) {
@@ -74,15 +76,16 @@ int do_more(char *pathname)
 
 	setupterm(NULL, fileno(stdout), (int *)0);
 	cursor = tigetstr("cup");
-	ROW = tigetnum("lines");
+	ROW = tigetnum("lines") - 1;
 	COLUMN = tigetnum("cols");
-	esc_sequence = tparm(cursor, (ROW + 1), 0);
+	esc_sequence = tparm(cursor, (ROW), 0);
 
 	while (fgets(content, COLUMN, stream)) {
+		byte_count += strlen(content);
 		if (line == ROW) {
-			replay = see_more(ROW);
+			replay = see_more(((byte_count * 100)/file_size));
 			putp(esc_sequence);
-			fputs("          ", stdout);
+			fputs("                   ", stdout);
 			putp(esc_sequence);
 			if (replay == 0)
 				break;
@@ -98,7 +101,6 @@ int do_more(char *pathname)
 
 	tcsetattr(0, TCSANOW, &oldstat);
 	fclose(stream);
-	printf("%ld\n", (long)buffer.st_size);
 }
 
 int main(int argc, char *argv[]) 
