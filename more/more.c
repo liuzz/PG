@@ -121,7 +121,7 @@ static int do_more(char *filename)
 	}
 
 	termios_info(0); //get the original termios before setting.
-	term_noecho(); 	//make the termial no echo and do not to enter "Enter"
+	term_noecho(); 	//make the termial no echo and not need to enter "Enter"
 
 	while (fgets(content, COLUMN, stream)) {
 		byte_count += strlen(content);
