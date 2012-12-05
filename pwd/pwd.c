@@ -32,7 +32,7 @@ void inum_to_name(ino_t inode_to_find, char *namebuf, int buflen)
 		while ((direntp = readdir(dir_ptr)) != NULL)
 				if (direntp->d_ino == inode_to_find) {
 						strncpy(namebuf, direntp->d_name, (size_t)buflen);
-						namebuf[buflen - 1] = '\0';
+						namebuf[buflen - 1] = '\0'; //see the man page of strncpy
 						closedir(dir_ptr);
 						return;
 				}
