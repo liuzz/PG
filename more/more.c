@@ -25,9 +25,10 @@
 #include <curses.h>
 #include <stdio.h>
 #include <termio.h>
+#include <termios.h>
 
-static int COLUMN;
-static int ROW;
+static unsigned short COLUMN;
+static unsigned short ROW;
 
 static int see_more(int percent, FILE *fp)
 {
@@ -73,9 +74,11 @@ static int termios_info(int flag)
 
 static int get_col_row()
 {
-	setupterm(NULL, fileno(stdout), (int *)0); // /usr/share/terminfo/; infocmp
-	ROW = tigetnum("lines") - 1;
-	COLUMN = tigetnum("cols");
+	//setupterm(NULL, fileno(stdout), (int *)0); // /usr/share/terminfo/; infocmp
+	struct winsize win;
+	ioctl(1, TIOCGWINSZ, &win);
+	ROW = win.ws_row - 1;//tigetnum("lines") - 1;
+	COLUMN = win.ws_col;//tigetnum("cols");
 
 	return 0;
 }
@@ -85,6 +88,7 @@ static int clean_prompt(void)
 	static char *esc_sequence;
 	if (esc_sequence == NULL) {
 		char *cursor;
+		setupterm(NULL, fileno(stdout), (int *)0); // /usr/share/terminfo/; infocmp
 		cursor = tigetstr("cup"); // This is the magic curses which you can jump to the 
 									//cursor wherever you want, oh sorry, just limit in the terminal.
 		esc_sequence = tparm(cursor, (ROW), 0);
