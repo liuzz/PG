@@ -4,12 +4,13 @@
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
+#include <stdlib.h>
 
 #define TIME_FORMAT "%Y-%m-%d %H:%M"
 #define	UTMP_SIZE  sizeof(struct utmp)
 int main(void)
 {
-	int fd, num;
+	int fd;
 	char outstr[50];
 	typedef struct utmp str_utmp;
 	time_t tm_temp;
@@ -25,7 +26,7 @@ int main(void)
 		printf("open error\n");
 		return -1;
 	}
-	while ((num = read(fd, utmp_info, UTMP_SIZE)) && num != -1) {
+	while ((read(fd, utmp_info, UTMP_SIZE)) == UTMP_SIZE) {
 		if (utmp_info->ut_type == USER_PROCESS) {
 				tm_temp = (time_t)((utmp_info->ut_tv).tv_sec); //ut_time == ut_tv.tv.sec
 				bd_time = localtime(&tm_temp); //convert sec to broken-down time
