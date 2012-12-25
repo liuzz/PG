@@ -26,6 +26,9 @@ int main(void)
 		printf("open error\n");
 		return -1;
 	}
+	int a;
+
+	int b;
 	while ((read(fd, utmp_info, UTMP_SIZE)) == UTMP_SIZE) {
 		if (utmp_info->ut_type == USER_PROCESS) {
 				tm_temp = (time_t)((utmp_info->ut_tv).tv_sec); //ut_time == ut_tv.tv.sec
