@@ -195,8 +195,8 @@ static void print_dir_simple(name_len **table, int count, int max)
 	unsigned short itemnum = column / (max + 3);  // print item's num per line
 	int lines = (count / itemnum) + ((count % itemnum) ? 1 : 0);
 	for (i = 0; i < lines; i++) {
-		for (j = 0; j < itemnum && (i*itemnum+j) < count; j++) {
-			printf("%-*s", (max + 3), table[i*itemnum + j]->name);
+		for (j = 0; j < itemnum && (j*lines+i) < count; j++) {
+			printf("%-*s", (max + 3), table[j*lines + i]->name);
 		}
 		printf("\n");
 	}
