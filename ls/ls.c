@@ -4,11 +4,14 @@
 #include <stdio.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <string.h>
 #include <time.h>
 #include <getopt.h>
 #include <pwd.h>
 #include <grp.h>
+#include <termios.h>
+#include <termio.h>
 
 #define TIME_START	4
 #define TIME_END	12
@@ -32,7 +35,7 @@ enum {
 
 typedef struct name_len {
 	char name[NAME_MAX+1]; 			// ctrl + ] linux/limits.h
-	unsigned short len;
+	unsigned short len; 			// There is no need to save this temporarily.
 }name_len;
 
 typedef struct dirent *direntp;
@@ -182,12 +185,21 @@ static int mycmp(const void *p1, const void *p2)
 	return strcasecmp(s1, s2);
 }
 
-static void print_dir_simple(name_len **table, int count)
+static void print_dir_simple(name_len **table, int count, int max)
 {
 	qsort(table, count, sizeof(name_len *), mycmp);
-	int i;
-	for (i = 0; i < count; i++)
-		printf("%s\n", table[i]->name);
+	int i, j;
+	struct winsize win;
+	ioctl(1, TIOCGWINSZ, &win);
+	int column = win.ws_col;
+	unsigned short itemnum = column / (max + 3);  // print item's num per line
+	int lines = (count / itemnum) + ((count % itemnum) ? 1 : 0);
+	for (i = 0; i < lines; i++) {
+		for (j = 0; j < itemnum && (i*itemnum+j) < count; j++) {
+			printf("%-*s", (max + 3), table[i*itemnum + j]->name);
+		}
+		printf("\n");
+	}
 }
 
 static void do_list(char *dirname)
@@ -224,17 +236,20 @@ static void do_list(char *dirname)
 		}						
 	}
 	else {
+		int max_len = 0;
 		while ((dp = readdir(dirp))) {
 			if ( *(dp->d_name) != '.' ) {
 				dir_item_tab = realloc(dir_item_tab, (count+1) * sizeof(name_len *));
 				dir_item_tab[count] = malloc(sizeof(name_len));
 				strcpy(dir_item_tab[count]->name, dp->d_name);   
-				dir_item_tab[count++]->len = dp->d_reclen;
+				dir_item_tab[count]->len = strlen(dir_item_tab[count]->name);
+				if (dir_item_tab[count++]->len > max_len)
+					max_len = dir_item_tab[count - 1]->len;
 			}
 		}						
 		dir_item_tab = realloc(dir_item_tab, (count+1) * sizeof(name_len *));
 		dir_item_tab[count++] = NULL;   // There is something boring!!! I just want a NULL to terminate.
-		print_dir_simple(dir_item_tab, count-1);
+		print_dir_simple(dir_item_tab, count-1, max_len);
 		//miss collectting for dir_item_tab
 		free(dir_item_tab);
 	}
