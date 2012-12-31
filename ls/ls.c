@@ -35,7 +35,7 @@ enum {
 
 typedef struct name_len {
 	char name[NAME_MAX+1]; 			// ctrl + ] linux/limits.h
-	unsigned short len; 			// There is no need to save this temporarily.
+	unsigned short len; 			
 }name_len;
 
 typedef struct dirent *direntp;
@@ -192,10 +192,10 @@ static void print_dir_simple(name_len **table, int count, int max)
 	struct winsize win;
 	ioctl(1, TIOCGWINSZ, &win);
 	int column = win.ws_col;
-	unsigned short itemnum = column / (max + 3);  // print item's num per line
-	int lines = (count / itemnum) + ((count % itemnum) ? 1 : 0);
+	unsigned short item_num = column / (max + 3);  //num of items num per line
+	int lines = (count / item_num) + ((count % item_num) ? 1 : 0);
 	for (i = 0; i < lines; i++) {
-		for (j = 0; j < itemnum && (j*lines+i) < count; j++) {
+		for (j = 0; j < item_num && (j*lines+i) < count; j++) {
 			printf("%-*s", (max + 3), table[j*lines + i]->name);
 		}
 		printf("\n");
@@ -234,8 +234,7 @@ static void do_list(char *dirname)
 			if ( *(dp->d_name) != '.' )
 				print_stat(dp->d_name);
 		}						
-	}
-	else {
+	} else {
 		int max_len = 0;
 		while ((dp = readdir(dirp))) {
 			if ( *(dp->d_name) != '.' ) {
@@ -268,6 +267,7 @@ static void usage(void)
 {
 	printf("ls [-aALh][directory...]\n");
 }
+
 static void parse_arg(int argc, char *argv[])
 {
 	int rtn, index;
