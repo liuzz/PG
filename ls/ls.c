@@ -236,9 +236,9 @@ static void print_dir_simple(name_len **table, int count, int max)
 	for (i = 0; i < lines; i++) {
 		for (j = 0; j < itemnum && (j*lines+i) < count; j++) {
 			get_color(table[j*lines +i]->name, &back, &font);
-			printf("\033[%d;%dm%-*s\033[0m", back, font, (max + 2), table[j*lines + i]->name);
+			fprintf(stdout, "\033[%d;%dm%-*s\033[0m", back, font, (max + 2), table[j*lines + i]->name);
 		}
-		printf("\n");
+		fprintf(stdout, "\n");
 	}
 }
 
@@ -266,7 +266,7 @@ static void do_list(char *dirname)
 	strcpy(old_pwd, current_pwd);
 
 	if (chdir(dirname)) {
-		printf("chdir error\n");
+		fprintf(stderr, "chdir error\n");
 		free(current_pwd);
 		free(old_pwd);
 		return;
@@ -310,7 +310,7 @@ static void do_list(char *dirname)
 	closedir(dirp);
 
 	if (chdir(old_pwd)) {
-		printf("chdir error\n");
+		fprintf(stderr, "chdir error\n");
 	}
 
 	free(current_pwd);
@@ -319,7 +319,7 @@ static void do_list(char *dirname)
 
 static void usage(void)
 {
-	printf("ls [-aAlLh][directory...]\n");
+	fprintf(stdout, "ls [-aAlLh][directory...]\n");
 }
 
 static void parse_arg(int argc, char *argv[])
