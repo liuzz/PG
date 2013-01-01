@@ -212,11 +212,6 @@ static int mycmp_name_len(const void *p1, const void *p2)
 	return strcasecmp(s1, s2);
 }
 
-static int mycmp_string(const void *p1, const void *p2)
-{
-	return strcasecmp(*(char * const *)p1, *(char * const *)p2);
-}
-
 static void print_dir_long(name_len **table, int count)
 {
 	qsort(table, count, sizeof(name_len *), mycmp_name_len);
@@ -308,7 +303,8 @@ static void do_list(char *dirname)
 		dir_item_tab[count++] = NULL;   // There is something boring!!! I just want a NULL to terminate.
 		print_dir_simple(dir_item_tab, count-1, max_len);
 	}
-	//miss collectting for dir_item_tab
+	for (; --count >= 0;)
+		free(dir_item_tab[count]);
 	free(dir_item_tab);
 
 	closedir(dirp);
