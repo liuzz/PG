@@ -1,3 +1,4 @@
+// So stupid design!!!!
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -15,7 +16,7 @@
 
 #define TIME_START	4
 #define TIME_END	12
-static const char *optstring = "aALh";
+static const char *optstring = "aAlLh";
 static const struct option longopts[] = {
 	{"all", no_argument, NULL, 'a'},
 	{"almost-all", no_argument, NULL, 'A'},
@@ -45,6 +46,8 @@ static int almost_flag;
 static int link_flag;
 static int human_flag;
 static int long_flag;
+
+static void get_color(char *, unsigned short *, unsigned short *);
 
 static void get_mode(mode_t m, char *rtnmode)
 {
@@ -119,28 +122,31 @@ static char *get_time(time_t mtime)
 static char *get_name(char *name, char *modearray) 
 {
 	char *fname;
+	unsigned short back, font;
 
+	get_color(name, &back, &font);
 	if (modearray[TYPE] == 'l') {
-		fname = (char *)malloc(PATH_MAX * 2);
+		fname = (char *)malloc(NAME_MAX * 2);
 		char *buf = (char *)malloc(PATH_MAX);
+		char *temp = (char *)malloc(PATH_MAX);
 
-		strcpy(fname, name);
+		sprintf(fname, "\033[%d;%dm%s\033[0m", back, font, name);
 		strcat(fname, " -> ");
-		readlink(name, buf, PATH_MAX);
-		strcat(fname, buf);
+		int count = readlink(name, buf, PATH_MAX);
+		buf[count] = 0;
+		get_color(buf, &back, &font);
+		sprintf(temp, "\033[%d;%dm%s\033[0m", back, font, buf);
+		strcat(fname, temp);
 		free(buf);
-
-		return fname;
+		free(temp);
+	} else {
+		fname = (char *)malloc(NAME_MAX);
+		sprintf(fname, "\033[%d;%dm%s\033[0m", back, font, name);
 	}
-	else {
-		fname = (char *)malloc(PATH_MAX);
-		strcpy(fname, name);
-
-		return fname;
-	}
+	return fname;
 }
 
-static void mystat(char *name, struct stat *infobuf)
+static void get_stat(char *name, struct stat *infobuf)
 {
 	if (link_flag)
 		stat(name, infobuf);
@@ -148,22 +154,43 @@ static void mystat(char *name, struct stat *infobuf)
 		lstat(name, infobuf);
 }
 
+static void get_color(char *name, unsigned short *back, unsigned short *font)
+{
+	struct stat infobuf;
+	link_flag = 0;
+	get_stat(name, &infobuf);	
+	*back = 22;
+	*font = 37;
+	if (infobuf.st_mode & S_IXUSR) {
+		*back = 01;  
+		*font = 32;
+	}
+	if (S_ISDIR(infobuf.st_mode)) {
+		*back = 01;
+		*font = 34;
+	}
+	if (S_ISLNK(infobuf.st_mode)) {
+		*back = 01;
+		*font = 36;
+	} 
+}
+
 static int is_dir(char *name)
 {
 	struct stat infobuf;
-	mystat(name, &infobuf);
+	get_stat(name, &infobuf);
 	if (S_ISDIR(infobuf.st_mode))
 		return 1;
 	return 0;
 }
 
-static void print_stat(char *name)
+static void print_stat_long(char *name)
 {
 	char modearray[11];
 	char *fname;
 	strcpy(modearray, "----------");
 	struct stat infobuf;
-	mystat(name, &infobuf);
+	get_stat(name, &infobuf);
 	get_mode(infobuf.st_mode, modearray);
 	fprintf(stdout, "%s.", modearray);
 	fprintf(stdout, "%4d ", (int)infobuf.st_nlink);			
@@ -176,7 +203,7 @@ static void print_stat(char *name)
 	free(fname);
 }
 
-static int mycmp(const void *p1, const void *p2)
+static int mycmp_name_len(const void *p1, const void *p2)
 {
 	name_len *n1 = *(name_len **)p1;
 	name_len *n2 = *(name_len **)p2;
@@ -185,18 +212,36 @@ static int mycmp(const void *p1, const void *p2)
 	return strcasecmp(s1, s2);
 }
 
+static int mycmp_string(const void *p1, const void *p2)
+{
+	return strcasecmp(*(char * const *)p1, *(char * const *)p2);
+}
+
+static void print_dir_long(name_len **table, int count)
+{
+	qsort(table, count, sizeof(name_len *), mycmp_name_len);
+	int i;
+	unsigned short back, font;
+	for (i = 0; i < count; i++) {
+		get_color(table[i]->name, &back, &font);
+		print_stat_long(table[i]->name);
+	}
+}
+
 static void print_dir_simple(name_len **table, int count, int max)
 {
-	qsort(table, count, sizeof(name_len *), mycmp);
+	qsort(table, count, sizeof(name_len *), mycmp_name_len);
 	int i, j;
+	unsigned short back, font;
 	struct winsize win;
 	ioctl(1, TIOCGWINSZ, &win);
 	int column = win.ws_col;
-	unsigned short itemnum = column / (max + 3);  // print item's num per line
+	unsigned short itemnum = column / (max + 2);  //num of items per line
 	int lines = (count / itemnum) + ((count % itemnum) ? 1 : 0);
 	for (i = 0; i < lines; i++) {
 		for (j = 0; j < itemnum && (j*lines+i) < count; j++) {
-			printf("%-*s", (max + 3), table[j*lines + i]->name);
+			get_color(table[j*lines +i]->name, &back, &font);
+			printf("\033[%d;%dm%-*s\033[0m", back, font, (max + 2), table[j*lines + i]->name);
 		}
 		printf("\n");
 	}
@@ -205,7 +250,14 @@ static void print_dir_simple(name_len **table, int count, int max)
 static void do_list(char *dirname)
 {
 	if (!is_dir(dirname)) {
-		print_stat(dirname);
+		if (long_flag)
+			print_stat_long(dirname);    //it is not a dir actually
+		else {
+			name_len *one = malloc(sizeof(name_len));
+			strcpy(one->name, dirname);
+			print_dir_simple(&one, 1, strlen(dirname));  //it is not a dir actually
+			free(one);
+		}
 		return;
 	}
 	DIR *dirp;
@@ -231,11 +283,16 @@ static void do_list(char *dirname)
 
 	if (long_flag) {
 		while ((dp = readdir(dirp))) {
-			if ( *(dp->d_name) != '.' )
-				print_stat(dp->d_name);
+			if ( *(dp->d_name) != '.' ) {
+				dir_item_tab = realloc(dir_item_tab, (count+1) * sizeof(name_len *));
+				dir_item_tab[count] = malloc(sizeof(name_len));
+				strcpy(dir_item_tab[count++]->name, dp->d_name);   
+			}
 		}						
-	}
-	else {
+		dir_item_tab = realloc(dir_item_tab, (count+1) * sizeof(name_len *));
+		dir_item_tab[count++] = NULL;   // There is something boring!!! I just want a NULL to terminate.
+		print_dir_long(dir_item_tab, count-1);
+	} else {
 		int max_len = 0;
 		while ((dp = readdir(dirp))) {
 			if ( *(dp->d_name) != '.' ) {
@@ -250,9 +307,9 @@ static void do_list(char *dirname)
 		dir_item_tab = realloc(dir_item_tab, (count+1) * sizeof(name_len *));
 		dir_item_tab[count++] = NULL;   // There is something boring!!! I just want a NULL to terminate.
 		print_dir_simple(dir_item_tab, count-1, max_len);
-		//miss collectting for dir_item_tab
-		free(dir_item_tab);
 	}
+	//miss collectting for dir_item_tab
+	free(dir_item_tab);
 
 	closedir(dirp);
 
@@ -266,8 +323,9 @@ static void do_list(char *dirname)
 
 static void usage(void)
 {
-	printf("ls [-aALh][directory...]\n");
+	printf("ls [-aAlLh][directory...]\n");
 }
+
 static void parse_arg(int argc, char *argv[])
 {
 	int rtn, index;
