@@ -39,6 +39,11 @@ typedef struct name_len {
 	unsigned short len; 			
 }name_len;
 
+typedef struct color_list {
+	char name[128];
+	char color[16];
+}color_list;
+
 typedef struct dirent *direntp;
 
 static int all_flag;
@@ -47,7 +52,32 @@ static int link_flag;
 static int human_flag;
 static int long_flag;
 
-static void get_color(char *, unsigned short *, unsigned short *);
+// TODO: A Hash list should be farther better.
+static color_list **color_tab = NULL;
+
+static char *get_color(char *);
+
+static void get_color_conf()
+{
+	char *config , *ptr;
+	int count = 0;
+	config = getenv("LS_COLORS");
+	while (1) {
+		color_tab = realloc(color_tab, (count+1) * sizeof(color_list *));
+		color_tab[count] = malloc(sizeof(color_list));
+		if (!(ptr = strchr(config, '=')))
+			break;
+		strncpy(color_tab[count]->name, config, (ptr - config));
+		(color_tab[count]->name)[ptr - config] = 0;
+		config = ptr + 1;
+		ptr = strchr(config, ':');
+		strncpy(color_tab[count]->color, config, (ptr - config));
+		(color_tab[count]->color)[ptr - config] = 0;
+		config = ptr + 1;
+		count++;
+	}
+	color_tab[count] = NULL;
+}
 
 static void get_mode(mode_t m, char *rtnmode)
 {
@@ -122,26 +152,25 @@ static char *get_time(time_t mtime)
 static char *get_name(char *name, char *modearray) 
 {
 	char *fname;
-	unsigned short back, font;
-
-	get_color(name, &back, &font);
+	char *color;
+	color = get_color(name);
 	if (modearray[TYPE] == 'l') {
 		fname = (char *)malloc(NAME_MAX * 2);
 		char *buf = (char *)malloc(PATH_MAX);
 		char *temp = (char *)malloc(PATH_MAX);
 
-		sprintf(fname, "\033[%d;%dm%s\033[0m", back, font, name);
+		sprintf(fname, "\033[%sm%s\033[0m", color, name);
 		strcat(fname, " -> ");
 		int count = readlink(name, buf, PATH_MAX);
 		buf[count] = 0;
-		get_color(buf, &back, &font);
-		sprintf(temp, "\033[%d;%dm%s\033[0m", back, font, buf);
+		color = get_color(buf);
+		sprintf(temp, "\033[%sm%s\033[0m", color, buf);
 		strcat(fname, temp);
 		free(buf);
 		free(temp);
 	} else {
 		fname = (char *)malloc(NAME_MAX);
-		sprintf(fname, "\033[%d;%dm%s\033[0m", back, font, name);
+		sprintf(fname, "\033[%sm%s\033[0m", color, name);
 	}
 	return fname;
 }
@@ -154,25 +183,56 @@ static void get_stat(char *name, struct stat *infobuf)
 		lstat(name, infobuf);
 }
 
-static void get_color(char *name, unsigned short *back, unsigned short *font)
+static char *endswith(char *name)
+{
+	char *ptr = strrchr(name, '.');
+	char *suffix;
+	if (ptr) {
+		strcpy(suffix, ptr + 1);
+		return suffix;
+	}
+	return ptr;
+}
+
+static void search_color_table(char *require, char **color)
+{
+	color_list **tmp = color_tab;
+	for (; (*tmp)->name; tmp++) {
+		if (!strcmp((*tmp)->name, require)) {
+			*color = (*tmp)->color;
+			return;
+		}
+	}
+}
+
+static char *get_color(char *name)
 {
 	struct stat infobuf;
+	char *color;
+	char *suffix;
+	char *type = malloc(3 * sizeof(char));
 	link_flag = 0;
 	get_stat(name, &infobuf);	
-	*back = 22;
-	*font = 37;
+	color = color_tab[0]->color;
+	suffix = endswith(name);
+	if (suffix) {
+		char star[64] = "*.";
+		strcat(star, suffix);
+		search_color_table(star, &color);
+	}
 	if (infobuf.st_mode & S_IXUSR) {
-		*back = 01;  
-		*font = 32;
+		strcpy(type, "ex");
 	}
 	if (S_ISDIR(infobuf.st_mode)) {
-		*back = 01;
-		*font = 34;
+		strcpy(type, "di");
 	}
 	if (S_ISLNK(infobuf.st_mode)) {
-		*back = 01;
-		*font = 36;
+		strcpy(type, "ln");
 	} 
+	if ((*type))	
+		search_color_table(type, &color);
+	free(type);
+	return color;
 }
 
 static int is_dir(char *name)
@@ -216,9 +276,7 @@ static void print_dir_long(name_len **table, int count)
 {
 	qsort(table, count, sizeof(name_len *), mycmp_name_len);
 	int i;
-	unsigned short back, font;
 	for (i = 0; i < count; i++) {
-		get_color(table[i]->name, &back, &font);
 		print_stat_long(table[i]->name);
 	}
 }
@@ -227,7 +285,7 @@ static void print_dir_simple(name_len **table, int count, int max)
 {
 	qsort(table, count, sizeof(name_len *), mycmp_name_len);
 	int i, j;
-	unsigned short back, font;
+	char *color;
 	struct winsize win;
 	ioctl(1, TIOCGWINSZ, &win);
 	int column = win.ws_col;
@@ -235,8 +293,8 @@ static void print_dir_simple(name_len **table, int count, int max)
 	int lines = (count / itemnum) + ((count % itemnum) ? 1 : 0);
 	for (i = 0; i < lines; i++) {
 		for (j = 0; j < itemnum && (j*lines+i) < count; j++) {
-			get_color(table[j*lines +i]->name, &back, &font);
-			fprintf(stdout, "\033[%d;%dm%-*s\033[0m", back, font, (max + 2), table[j*lines + i]->name);
+			color = get_color(table[j*lines +i]->name);
+			fprintf(stdout, "\033[%sm%-*s\033[0m", color, (max + 2), table[j*lines + i]->name);
 		}
 		fprintf(stdout, "\n");
 	}
@@ -352,6 +410,7 @@ static void parse_arg(int argc, char *argv[])
 int main(int argc, char *argv[])
 {
 	parse_arg(argc, argv);
+	get_color_conf();
 	int num_dir = argc - optind;
 	argc = optind;
 	if (num_dir == 0)
@@ -359,5 +418,9 @@ int main(int argc, char *argv[])
 	while (num_dir--) {
 		do_list(*(argv + argc++));
 	}
+	color_list **tmp = color_tab;
+	for (; *tmp;)
+		free((*tmp++));	
+	free(color_tab);
 	return 0;
 }
