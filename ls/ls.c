@@ -13,6 +13,7 @@
 #include <grp.h>
 #include <termios.h>
 #include <termio.h>
+#include <errno.h>
 
 #define TIME_START	4
 #define TIME_END	12
@@ -175,12 +176,12 @@ static char *get_name(char *name, char *modearray)
 	return fname;
 }
 
-static void get_stat(char *name, struct stat *infobuf)
+static int get_stat(char *name, struct stat *infobuf)
 {
 	if (link_flag)
-		stat(name, infobuf);
+		return stat(name, infobuf);
 	else 
-		lstat(name, infobuf);
+		return lstat(name, infobuf);
 }
 
 static char *endswith(char *name)
@@ -238,7 +239,8 @@ static char *get_color(char *name)
 static int is_dir(char *name)
 {
 	struct stat infobuf;
-	get_stat(name, &infobuf);
+	if (get_stat(name, &infobuf) == -1)
+		return -1;
 	if (S_ISDIR(infobuf.st_mode))
 		return 1;
 	return 0;
@@ -302,7 +304,8 @@ static void print_dir_simple(name_len **table, int count, int max)
 
 static void do_list(char *dirname)
 {
-	if (!is_dir(dirname)) {
+	int rtn;
+	if (!(rtn = is_dir(dirname))) {
 		if (long_flag)
 			print_stat_long(dirname);    //it is not a dir actually
 		else {
@@ -311,6 +314,9 @@ static void do_list(char *dirname)
 			print_dir_simple(&one, 1, strlen(dirname));  //it is not a dir actually
 			free(one);
 		}
+		return;
+	} else if (rtn == -1) {
+		perror(dirname);
 		return;
 	}
 	DIR *dirp;
@@ -334,6 +340,8 @@ static void do_list(char *dirname)
 
 	dirp = opendir(current_pwd);
 
+	//FIXME: To much redundant code in this function!!
+	//       Move the code below into another function.
 	if (long_flag) {
 		while ((dp = readdir(dirp))) {
 			if ( *(dp->d_name) != '.' ) {
@@ -377,7 +385,7 @@ static void do_list(char *dirname)
 
 static void usage(void)
 {
-	fprintf(stdout, "ls [-aAlLh][directory...]\n");
+	fprintf(stdout, "ls [-aAlLh] [directory...]\n");
 }
 
 static void parse_arg(int argc, char *argv[])
@@ -412,7 +420,7 @@ int main(int argc, char *argv[])
 	parse_arg(argc, argv);
 	get_color_conf();
 	int num_dir = argc - optind;
-	argc = optind;
+	argc = optind; 			//It is not the amount of argv any more, just an offset.
 	if (num_dir == 0)
 		do_list(".");
 	while (num_dir--) {
