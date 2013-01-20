@@ -16,6 +16,7 @@
 
 #define TIME_START	4
 #define TIME_END	12
+
 static const char *optstring = "aAlLh";
 static const struct option longopts[] = {
 	{"all", no_argument, NULL, 'a'},
