@@ -1,4 +1,3 @@
-// So stupid design!!!!
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -99,6 +98,8 @@ static void get_mode(mode_t m, char *rtnmode)
 		rtnmode[WUSR] = 'w';
 	if (m & S_IXUSR)
 		rtnmode[XUSR] = 'x';
+	if (m & S_ISUID)             // set user ID bit
+		rtnmode[XUSR] = 's';
 
 	if (m & S_IRGRP)
 		rtnmode[RGRP] = 'r';
@@ -106,6 +107,8 @@ static void get_mode(mode_t m, char *rtnmode)
 		rtnmode[WGRP] = 'w';
 	if (m & S_IXGRP)
 		rtnmode[XGRP] = 'x';
+	if (m & S_ISGID)
+		rtnmode[XGRP] = 's';
 
 	if (m & S_IROTH)
 		rtnmode[ROTH] = 'r';
@@ -113,6 +116,8 @@ static void get_mode(mode_t m, char *rtnmode)
 		rtnmode[WOTH] = 'w';
 	if (m & S_IXOTH)
 		rtnmode[XOTH] = 'x';
+	if (m & S_ISVTX)
+		rtnmode[XOTH] = 't';
 }
 
 static char *get_user(uid_t uid)
