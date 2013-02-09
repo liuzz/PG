@@ -8,7 +8,7 @@
  *        Version:  1.0
  *        Created:  12/02/2012 06:55:59 PM
  *       Revision:  none
- *       Compiler:  gcc
+ *       Compiler:  gcc more.c -lncurses -o more.c
  *
  *         Author:  Liu Zhengzhen (), liuzhengzhen9036#gmail#com
  *   Organization:  
