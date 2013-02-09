@@ -158,6 +158,7 @@ final:
 	utmpname(UTMP_FILE); 			//utmp.h ctrl + ]
 	setutent();
 	int inter;
+	//FIXME: It it is running in X-windows, there will be a segment core.
 	while (user=getutent()) {
 		proc_t *best = NULL;
 		if (user->ut_type != USER_PROCESS) continue;
