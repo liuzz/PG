@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <utmp.h>
+#include <ctype.h>
 
 #define PROC_PATH 			"/proc/"
 
@@ -57,9 +58,8 @@ typedef struct proc_t {
 static int is_all_num(char *ptr) 
 {
 	for (; *ptr; ptr++) 
-		if (!((*ptr <= '9') && (*ptr >= '0'))) { 		// < '9' is first tested !!! a big mistake missing =
+		if (!isdigit(*ptr))
 			return 0;	
-		}
 	return 1;
 }
 
